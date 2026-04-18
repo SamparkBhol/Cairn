@@ -11,7 +11,7 @@ started and a wiki that tells you why.
 
 ## Why this exists
 
-I've been using karpathy's autoresearch for a few weeks. Both work. Both hit the same wall: after ~40 experiments the agent starts re-proposing things it already tried, the metric has drifted from what I actually care about, and the log is too long to read. The mechanical parts also have real bugs — shell injection if your yaml has the wrong char in it, tsv corruption, no budget cap, no worktree isolation. This is the rewrite I kept meaning to do.
+I've been using karpathy's autoresearch for a few weeks. It works. It hit the same wall: after ~40 experiments the agent starts re-proposing things it already tried, the metric has drifted from what I actually care about, and the log is too long to read. The mechanical parts also have real bugs — shell injection if your yaml has the wrong char in it, tsv corruption, no budget cap, no worktree isolation. This is the rewrite I kept meaning to do.
 
 ## How it's different
 
