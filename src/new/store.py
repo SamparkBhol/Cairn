@@ -89,6 +89,50 @@ class Store:
             )
         return n
 
+    def enqueue(self, spec: str, priority: int = 0) -> int:
+        with self.conn:
+            cur = self.conn.execute(
+                "INSERT INTO queue(spec, priority, queued_at) VALUES(?,?,?)",
+                (spec, priority, time.time()),
+            )
+            return cur.lastrowid
+
+    def queue_size(self) -> int:
+        r = self.conn.execute(
+            "SELECT COUNT(*) FROM queue WHERE claimed_by IS NULL"
+        ).fetchone()
+        return r[0]
+
+    def claim_one(self, worker: str) -> dict | None:
+        with self.conn:
+            self.conn.execute("BEGIN IMMEDIATE")
+            r = self.conn.execute(
+                "SELECT id, spec FROM queue WHERE claimed_by IS NULL "
+                "ORDER BY priority DESC, id ASC LIMIT 1"
+            ).fetchone()
+            if not r:
+                return None
+            qid, spec = r
+            self.conn.execute(
+                "UPDATE queue SET claimed_by=?, claimed_at=? WHERE id=?",
+                (worker, time.time(), qid),
+            )
+        return {"id": qid, "spec": spec}
+
+    def unclaim_stale(self, older_than_s: float) -> int:
+        cutoff = time.time() - older_than_s
+        with self.conn:
+            cur = self.conn.execute(
+                "UPDATE queue SET claimed_by=NULL, claimed_at=NULL "
+                "WHERE claimed_by IS NOT NULL AND claimed_at < ?",
+                (cutoff,),
+            )
+            return cur.rowcount
+
+    def dequeue(self, qid: int) -> None:
+        with self.conn:
+            self.conn.execute("DELETE FROM queue WHERE id=?", (qid,))
+
 
 def open_store(path: Path) -> Store:
     path.parent.mkdir(parents=True, exist_ok=True)
