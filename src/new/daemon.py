@@ -8,7 +8,7 @@ import threading
 import time
 from pathlib import Path
 
-from . import budget, consolidate, metric, rpc, schema, store, util, wiki, worker
+from . import budget, consolidate, rpc, schema, store, util, wiki, worker
 
 
 def _load_cfg(project: Path) -> schema.Config:
@@ -33,7 +33,6 @@ class Daemon:
             wallclock_h=self.cfg.budget.max_wallclock_hours,
             cost_usd=self.cfg.budget.max_cost_usd,
         )
-        # sweep stale claims from a prior crash
         self.store.unclaim_stale(older_than_s=3600)
         self._check_baseline_vs_threshold()
         self.started_at = time.time()
@@ -51,7 +50,6 @@ class Daemon:
             )
             self.store.kv_set("halted_baseline", msg)
         else:
-            # clear any prior halt reason
             self.store.conn.execute("DELETE FROM kv WHERE k='halted_baseline'")
 
     def handle(self, req: schema.Req) -> schema.Resp:
@@ -210,7 +208,6 @@ class Daemon:
                     )
                     m_holdout = hr["metric"]
                     if m_holdout is not None and r["metric"] is not None:
-                        # compare direction
                         prev = self._prev_primary_metric(exp_num)
                         if prev is not None:
                             primary_moved_right = _moved_right(

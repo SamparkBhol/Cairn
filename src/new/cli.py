@@ -1,7 +1,6 @@
 import argparse
 import json
 import os
-import shutil
 import signal
 import subprocess
 import sys
@@ -49,7 +48,6 @@ def cmd_init(args):
     proj = _project()
     (proj / ".new").mkdir(exist_ok=True)
     yf = proj / "experiment.yaml"
-    # a zero-byte file from conftest or stale touch should be replaced
     if not yf.exists() or yf.stat().st_size == 0:
         yf.write_text(_TEMPLATE_YAML)
     wiki.init(proj / "wiki")
@@ -196,12 +194,10 @@ def cmd_logs(args):
 
 def cmd_baseline(args):
     proj = _project()
-    # require a committed repo so worktree add works
     if not (proj / ".git").exists():
         print("no git repo; run `new init` first", file=sys.stderr)
         sys.exit(1)
-    cfg_text = (proj / "experiment.yaml").read_text()
-    cfg = schema.load_config_yaml(cfg_text)
+    cfg = schema.load_config_yaml((proj / "experiment.yaml").read_text())
     n = args.n
     samples = []
     for i in range(n):
@@ -218,7 +214,6 @@ def cmd_baseline(args):
         samples.append(r["metric"])
         print(f"baseline {i+1}/{n}: {r['metric']:.6f}")
     mean, sd = metric.stats(samples)
-    # persist via daemon RPC if up, else directly to store
     if _daemon_up():
         payload = json.dumps(
             {"n": n, "mean": mean, "stddev": sd, "samples": samples}
