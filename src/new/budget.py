@@ -7,7 +7,7 @@ def init(s, *, experiments: int, wallclock_h: float, cost_usd: float) -> None:
         ("wallclock", wallclock_h * 3600.0),
         ("cost", cost_usd),
     ]
-    with s.conn:
+    with s._lock:
         for k, cap in rows:
             s.conn.execute(
                 "INSERT INTO budget(key,used,cap,updated_at) VALUES(?,?,?,?) "
@@ -18,29 +18,38 @@ def init(s, *, experiments: int, wallclock_h: float, cost_usd: float) -> None:
 
 def state(s) -> dict:
     used, caps = {}, {}
-    for r in s.conn.execute("SELECT key, used, cap FROM budget"):
-        used[r[0]] = r[1]
-        caps[r[0]] = r[2]
+    with s._lock:
+        for r in s.conn.execute("SELECT key, used, cap FROM budget").fetchall():
+            used[r[0]] = r[1]
+            caps[r[0]] = r[2]
     return {"used": used, "caps": caps}
 
 
 def try_consume(s, key: str, amount: float) -> bool:
-    with s.conn:
+    with s._lock:
         s.conn.execute("BEGIN IMMEDIATE")
-        r = s.conn.execute(
-            "SELECT used, cap FROM budget WHERE key=?", (key,)
-        ).fetchone()
-        if not r:
-            return False
-        used, cap = r
-        if cap <= 0:
-            return True
-        if used + amount > cap:
-            return False
-        s.conn.execute(
-            "UPDATE budget SET used = used + ?, updated_at = ? WHERE key=?",
-            (amount, time.time(), key),
-        )
+        try:
+            r = s.conn.execute(
+                "SELECT used, cap FROM budget WHERE key=?", (key,)
+            ).fetchone()
+            if not r:
+                s.conn.execute("COMMIT")
+                return False
+            used, cap = r
+            if cap <= 0:
+                s.conn.execute("COMMIT")
+                return True
+            if used + amount > cap:
+                s.conn.execute("COMMIT")
+                return False
+            s.conn.execute(
+                "UPDATE budget SET used = used + ?, updated_at = ? WHERE key=?",
+                (amount, time.time(), key),
+            )
+            s.conn.execute("COMMIT")
+        except Exception:
+            s.conn.execute("ROLLBACK")
+            raise
     return True
 
 
