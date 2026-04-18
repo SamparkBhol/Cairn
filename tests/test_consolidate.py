@@ -1,4 +1,4 @@
-from new import consolidate, store
+from cairn import consolidate, store
 
 
 def _insert_runs(s, metrics, status="keep"):
@@ -12,31 +12,31 @@ def _insert_runs(s, metrics, status="keep"):
 
 
 def test_trigger_by_count(tmp_project):
-    s = store.open_store(tmp_project / ".new" / "state.db")
+    s = store.open_store(tmp_project / ".cairn" / "state.db")
     _insert_runs(s, [0.1] * 20)
     assert consolidate.should_fire(s, every=20, thresh=0.01)[0] == "count"
 
 
 def test_trigger_by_stall_discards(tmp_project):
-    s = store.open_store(tmp_project / ".new" / "state.db")
+    s = store.open_store(tmp_project / ".cairn" / "state.db")
     _insert_runs(s, [0.1] * 5, status="discard")
     assert consolidate.should_fire(s, every=50, thresh=0.01)[0] == "stall"
 
 
 def test_trigger_by_flat_metric(tmp_project):
-    s = store.open_store(tmp_project / ".new" / "state.db")
+    s = store.open_store(tmp_project / ".cairn" / "state.db")
     _insert_runs(s, [0.5] * 10)
     assert consolidate.should_fire(s, every=50, thresh=0.01)[0] == "stall"
 
 
 def test_no_trigger_when_healthy(tmp_project):
-    s = store.open_store(tmp_project / ".new" / "state.db")
+    s = store.open_store(tmp_project / ".cairn" / "state.db")
     _insert_runs(s, [0.5, 0.4, 0.3, 0.25, 0.2])
     assert consolidate.should_fire(s, every=50, thresh=0.01) is None
 
 
 def test_prompt_includes_recent(tmp_project):
-    s = store.open_store(tmp_project / ".new" / "state.db")
+    s = store.open_store(tmp_project / ".cairn" / "state.db")
     _insert_runs(s, [0.9, 0.8, 0.7])
     prompt = consolidate.build_prompt(s, wiki_root=tmp_project / "wiki",
                                        reason="manual")

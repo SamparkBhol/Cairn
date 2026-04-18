@@ -1,5 +1,5 @@
-import new
+import cairn
 
 
 def test_version():
-    assert new.__version__
+    assert cairn.__version__

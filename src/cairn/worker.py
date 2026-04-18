@@ -17,10 +17,10 @@ def run_one(*, project: Path, exp_num: int,
             run_command: list[str], grep_pattern: str,
             timeout_s: int) -> dict:
     project = Path(project)
-    logs_dir = project / ".new" / "logs"
+    logs_dir = project / ".cairn" / "logs"
     logs_dir.mkdir(parents=True, exist_ok=True)
     sha = _run_git(["rev-parse", "HEAD"], project)[:7]
-    wt = project / ".new" / "worktrees" / f"{exp_num:04d}-{sha}"
+    wt = project / ".cairn" / "worktrees" / f"{exp_num:04d}-{sha}"
     wt.parent.mkdir(parents=True, exist_ok=True)
     log_path = logs_dir / f"{exp_num:04d}_{sha}.log"
 

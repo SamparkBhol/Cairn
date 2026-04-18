@@ -32,11 +32,11 @@ def _project() -> Path:
 
 
 def _sock() -> Path:
-    return _project() / ".new" / "sock"
+    return _project() / ".cairn" / "sock"
 
 
 def _pid() -> Path:
-    return _project() / ".new" / "newd.pid"
+    return _project() / ".cairn" / "cairnd.pid"
 
 
 def _daemon_up() -> bool:
@@ -46,41 +46,44 @@ def _daemon_up() -> bool:
 
 def cmd_init(args):
     proj = _project()
-    (proj / ".new").mkdir(exist_ok=True)
+    (proj / ".cairn").mkdir(exist_ok=True)
     yf = proj / "experiment.yaml"
     if not yf.exists() or yf.stat().st_size == 0:
         yf.write_text(_TEMPLATE_YAML)
     wiki.init(proj / "wiki")
-    if not (proj / ".git").exists():
+    # only create a repo if we're not already inside one
+    r = subprocess.run(["git", "rev-parse", "--is-inside-work-tree"],
+                       cwd=proj, capture_output=True, text=True)
+    if r.returncode != 0:
         subprocess.run(["git", "init", "-q", "-b", "master"], cwd=proj, check=False)
     print(f"initialized {proj}")
 
 
 def cmd_up(args):
     if _daemon_up():
-        print("newd already up")
+        print("cairnd already up")
         return
     proj = _project()
-    log = proj / ".new" / "logs" / "newd.log"
+    log = proj / ".cairn" / "logs" / "cairnd.log"
     log.parent.mkdir(parents=True, exist_ok=True)
     p = subprocess.Popen(
-        [sys.executable, "-m", "new.daemon", "--project", str(proj)],
+        [sys.executable, "-m", "cairn.daemon", "--project", str(proj)],
         stdout=open(log, "ab"), stderr=subprocess.STDOUT,
         start_new_session=True,
     )
     for _ in range(60):
         if _sock().exists():
-            print(f"newd up (pid {p.pid})")
+            print(f"cairnd up (pid {p.pid})")
             return
         time.sleep(0.05)
-    print("newd did not come up — see .new/logs/newd.log", file=sys.stderr)
+    print("cairnd did not come up — see .cairn/logs/cairnd.log", file=sys.stderr)
     sys.exit(1)
 
 
 def cmd_down(args):
     pid = util.read_pidfile(_pid())
     if not util.pid_alive(pid):
-        print("newd not running")
+        print("cairnd not running")
         return
     try:
         os.kill(pid, signal.SIGTERM)
@@ -101,14 +104,14 @@ def cmd_down(args):
 
 def cmd_status(args):
     if not _daemon_up():
-        print("newd: down")
+        print("cairnd: down")
         return
     resp = rpc.call(_sock(), schema.Req(type="status"))
     if not resp.ok:
         print(f"error: {resp.error}", file=sys.stderr)
         sys.exit(1)
     report = schema.decode(resp.payload, schema.StatusReport)
-    print(f"newd: up (uptime {report.uptime_s:.0f}s)")
+    print(f"cairnd: up (uptime {report.uptime_s:.0f}s)")
     print(f"queue: {report.queue_size}  in-flight: {report.in_flight}")
     print("budget:")
     for k, cap in report.budget_cap.items():
@@ -125,7 +128,7 @@ def cmd_status(args):
 
 def cmd_run(args):
     if not _daemon_up():
-        print("newd not running; run `new up`", file=sys.stderr)
+        print("cairnd not running; run `cairn up`", file=sys.stderr)
         sys.exit(1)
     if (_project() / ".git").exists():
         r = subprocess.run(
@@ -148,7 +151,7 @@ def cmd_run(args):
 
 def cmd_consolidate(args):
     if not _daemon_up():
-        print("newd not running", file=sys.stderr)
+        print("cairnd not running", file=sys.stderr)
         sys.exit(1)
     if args.done:
         payload = json.dumps({
@@ -174,7 +177,7 @@ def cmd_lint(args):
 
 
 def cmd_logs(args):
-    logs = _project() / ".new" / "logs"
+    logs = _project() / ".cairn" / "logs"
     if args.exp is not None:
         matches = sorted(logs.glob(f"{args.exp:04d}_*.log"))
         if not matches:
@@ -182,20 +185,20 @@ def cmd_logs(args):
             sys.exit(1)
         print(matches[-1].read_text())
         return
-    newd = logs / "newd.log"
-    if not newd.exists():
+    cairnd = logs / "cairnd.log"
+    if not cairnd.exists():
         print("no daemon log yet", file=sys.stderr)
         return
     if args.follow:
-        subprocess.call(["tail", "-F", str(newd)])
+        subprocess.call(["tail", "-F", str(cairnd)])
     else:
-        print(newd.read_text())
+        print(cairnd.read_text())
 
 
 def cmd_baseline(args):
     proj = _project()
     if not (proj / ".git").exists():
-        print("no git repo; run `new init` first", file=sys.stderr)
+        print("no git repo; run `cairn init` first", file=sys.stderr)
         sys.exit(1)
     cfg = schema.load_config_yaml((proj / "experiment.yaml").read_text())
     n = args.n
@@ -220,7 +223,7 @@ def cmd_baseline(args):
         ).encode()
         rpc.call(_sock(), schema.Req(type="baseline_save", payload=payload))
     else:
-        s = store.open_store(proj / ".new" / "state.db")
+        s = store.open_store(proj / ".cairn" / "state.db")
         try:
             s.save_baseline(n=n, mean=mean, stddev=sd, samples=samples)
         finally:
@@ -236,7 +239,7 @@ def cmd_baseline(args):
 
 
 def main():
-    ap = argparse.ArgumentParser(prog="new")
+    ap = argparse.ArgumentParser(prog="cairn")
     sub = ap.add_subparsers(dest="cmd", required=True)
 
     sub.add_parser("init").set_defaults(fn=cmd_init)

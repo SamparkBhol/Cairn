@@ -1,7 +1,7 @@
 import msgspec
 import pytest
 
-from new import schema
+from cairn import schema
 
 
 def test_config_minimal():

@@ -1,6 +1,4 @@
-# new123
-
-Working name. Real name pending.
+# cairn
 
 An autonomous experiment runner that actually remembers what it tried.
 
@@ -32,8 +30,8 @@ isolation. This is the rewrite I kept meaning to do.
 - **Held-out eval.** Optional sidecar command the agent can't see. If
   the primary metric improves but the held-out doesn't, the run is
   discarded. Cheap Goodhart defense.
-- **Daemon + client.** A long-lived `newd` owns everything that can go
-  wrong (queue, budget, worktrees, metric parsing). A thin `new` CLI
+- **Daemon + client.** A long-lived `cairnd` owns everything that can go
+  wrong (queue, budget, worktrees, metric parsing). A thin `cairn` CLI
   is what you type. No port conflicts — Unix socket.
 - **Worktree per run.** Every experiment runs in its own `git worktree`.
   Crash safely, clean up automatically.
@@ -47,7 +45,7 @@ isolation. This is the rewrite I kept meaning to do.
 
 - Not a cloud orchestrator. Single machine.
 - Not a hyperparameter search. The agent does the thinking.
-- Not a metrics dashboard. `new status` in a second terminal.
+- Not a metrics dashboard. `cairn status` in a second terminal.
 - Not tied to any LLM. Works with Claude Code, Codex, plain bash scripts.
 - Not for Windows. Unix sockets, flock, process groups.
 
@@ -61,10 +59,10 @@ uv tool install .
 
 ```
 cd your-project/
-new init                          # writes experiment.yaml, wiki/, .new/
+cairn init                          # writes experiment.yaml, wiki/, .cairn/
 # edit experiment.yaml
-new up                            # start the daemon
-new baseline                      # run baseline 3x, get noise profile
+cairn up                            # start the daemon
+cairn baseline                      # run baseline 3x, get noise profile
 # open claude code (or whatever)
 # prompt: "read program.md and let's start"
 ```
@@ -72,14 +70,14 @@ new baseline                      # run baseline 3x, get noise profile
 In another terminal:
 
 ```
-new status                        # queue, budget, last 5 runs
-new logs --exp 7                  # stdout of experiment 7
+cairn status                        # queue, budget, last 5 runs
+cairn logs --exp 7                  # stdout of experiment 7
 ```
 
 To stop:
 
 ```
-new down
+cairn down
 ```
 
 ## Files
@@ -87,7 +85,7 @@ new down
 - `experiment.yaml` — config
 - `program.md` — agent contract, short
 - `wiki/` — the palace. agent-maintained.
-- `.new/` — daemon state. gitignored.
+- `.cairn/` — daemon state. gitignored.
 
 ## Credit
 

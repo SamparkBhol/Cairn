@@ -6,7 +6,7 @@ from pathlib import Path
 
 
 def find_project_root() -> Path:
-    env = os.environ.get("NEW_PROJECT_ROOT")
+    env = os.environ.get("CAIRN_PROJECT_ROOT")
     if env:
         return Path(env).resolve()
     cur = Path.cwd().resolve()
@@ -21,7 +21,7 @@ def project_root() -> Path:
 
 
 def new_dir() -> Path:
-    d = project_root() / ".new"
+    d = project_root() / ".cairn"
     d.mkdir(parents=True, exist_ok=True)
     return d
 

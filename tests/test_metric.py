@@ -1,4 +1,4 @@
-from new import metric
+from cairn import metric
 
 
 def test_parse_single_line():

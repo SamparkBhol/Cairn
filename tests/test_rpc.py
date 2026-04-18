@@ -3,7 +3,7 @@ import time
 
 import pytest
 
-from new import rpc, schema
+from cairn import rpc, schema
 
 
 def _server_thread(sock_path, handler):
@@ -22,7 +22,7 @@ def _server_thread(sock_path, handler):
 
 
 def test_roundtrip_ok(tmp_project):
-    sock = tmp_project / ".new" / "sock"
+    sock = tmp_project / ".cairn" / "sock"
 
     def handler(req: schema.Req) -> schema.Resp:
         return schema.Resp(ok=True, payload=b"pong-" + req.payload)
@@ -41,7 +41,7 @@ def test_roundtrip_ok(tmp_project):
 
 
 def test_error_handler(tmp_project):
-    sock = tmp_project / ".new" / "sock"
+    sock = tmp_project / ".cairn" / "sock"
 
     def handler(req):
         raise RuntimeError("boom")

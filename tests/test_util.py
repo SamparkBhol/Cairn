@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from new import util
+from cairn import util
 
 
 def test_project_root_autodetect(tmp_project):
@@ -12,20 +12,20 @@ def test_project_root_autodetect(tmp_project):
 
 def test_project_root_from_env(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setenv("NEW_PROJECT_ROOT", str(tmp_path))
+    monkeypatch.setenv("CAIRN_PROJECT_ROOT", str(tmp_path))
     assert util.project_root() == tmp_path
 
 
 def test_project_root_missing(monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
-    monkeypatch.delenv("NEW_PROJECT_ROOT", raising=False)
+    monkeypatch.delenv("CAIRN_PROJECT_ROOT", raising=False)
     assert util.project_root() == tmp_path
 
 
 def test_new_dir_created(tmp_project):
     d = util.new_dir()
     assert d.exists() and d.is_dir()
-    assert d == tmp_project / ".new"
+    assert d == tmp_project / ".cairn"
 
 
 def test_atomic_write_creates_file(tmp_project):
@@ -42,14 +42,14 @@ def test_atomic_write_overwrites(tmp_project):
 
 
 def test_pidfile_roundtrip(tmp_project):
-    pf = tmp_project / ".new" / "newd.pid"
+    pf = tmp_project / ".cairn" / "cairnd.pid"
     pf.parent.mkdir(parents=True)
     util.write_pidfile(pf, 4242)
     assert util.read_pidfile(pf) == 4242
 
 
 def test_pidfile_stale_detection(tmp_project):
-    pf = tmp_project / ".new" / "newd.pid"
+    pf = tmp_project / ".cairn" / "cairnd.pid"
     pf.parent.mkdir(parents=True)
     util.write_pidfile(pf, 999_999_999)
     assert util.pid_alive(util.read_pidfile(pf)) is False

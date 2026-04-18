@@ -7,14 +7,14 @@ from pathlib import Path
 
 import pytest
 
-from new import store
+from cairn import store
 
 
 def _new(project, *argv, timeout=30):
     env = os.environ.copy()
-    env["NEW_PROJECT_ROOT"] = str(project)
+    env["CAIRN_PROJECT_ROOT"] = str(project)
     return subprocess.run(
-        [sys.executable, "-m", "new", *argv],
+        [sys.executable, "-m", "cairn", *argv],
         cwd=project, capture_output=True, text=True, env=env, timeout=timeout,
     )
 
@@ -57,7 +57,7 @@ def test_baseline_saves_and_halts_on_noise(noisy_project):
     r = _new(noisy_project, "baseline", "--n", "3")
     assert r.returncode == 0, r.stderr
     # check baseline row exists
-    s = store.open_store(noisy_project / ".new" / "state.db")
+    s = store.open_store(noisy_project / ".cairn" / "state.db")
     try:
         b = s.get_baseline()
         assert b is not None

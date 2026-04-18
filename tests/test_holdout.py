@@ -1,6 +1,6 @@
 import subprocess
 
-from new import daemon, schema, store
+from cairn import daemon, schema, store
 
 
 def test_holdout_divergence_demotes_to_discard(tmp_path, monkeypatch):
@@ -41,7 +41,7 @@ def test_holdout_divergence_demotes_to_discard(tmp_path, monkeypatch):
     subprocess.check_call(["git", "config", "user.name", "x"], cwd=proj)
     subprocess.check_call(["git", "add", "."], cwd=proj)
     subprocess.check_call(["git", "commit", "-q", "-m", "init"], cwd=proj)
-    monkeypatch.setenv("NEW_PROJECT_ROOT", str(proj))
+    monkeypatch.setenv("CAIRN_PROJECT_ROOT", str(proj))
 
     d = daemon.Daemon(proj)
     try:

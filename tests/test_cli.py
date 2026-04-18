@@ -6,9 +6,9 @@ from pathlib import Path
 
 def _new(project, *argv, timeout=20):
     env = os.environ.copy()
-    env["NEW_PROJECT_ROOT"] = str(project)
+    env["CAIRN_PROJECT_ROOT"] = str(project)
     return subprocess.run(
-        [sys.executable, "-m", "new", *argv],
+        [sys.executable, "-m", "cairn", *argv],
         cwd=project, capture_output=True, text=True, env=env, timeout=timeout,
     )
 

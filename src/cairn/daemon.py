@@ -20,7 +20,7 @@ class Daemon:
     def __init__(self, project: Path):
         self.project = Path(project)
         self.cfg = _load_cfg(self.project)
-        self.store = store.open_store(self.project / ".new" / "state.db")
+        self.store = store.open_store(self.project / ".cairn" / "state.db")
         self.stop = threading.Event()
         self.in_flight = 0
         self.in_flight_lock = threading.Lock()
@@ -46,7 +46,7 @@ class Daemon:
             msg = (
                 f"baseline stddev {b['stddev']:.4f} exceeds half of "
                 f"improvement_threshold {self.cfg.improvement_threshold:.4f}. "
-                f"fix rng seed or raise threshold or run `new baseline --n 10`."
+                f"fix rng seed or raise threshold or run `cairn baseline --n 10`."
             )
             self.store.kv_set("halted_baseline", msg)
         else:
@@ -287,19 +287,19 @@ def _moved_right(prev: float, cur: float, direction: str) -> bool:
 
 
 def main():
-    ap = argparse.ArgumentParser(prog="newd")
+    ap = argparse.ArgumentParser(prog="cairnd")
     ap.add_argument("--project", default=".", help="project dir (default: cwd)")
     ap.add_argument("--foreground", action="store_true")
     args = ap.parse_args()
 
     project = Path(args.project).resolve()
-    os.environ["NEW_PROJECT_ROOT"] = str(project)
-    pf = project / ".new" / "newd.pid"
+    os.environ["CAIRN_PROJECT_ROOT"] = str(project)
+    pf = project / ".cairn" / "cairnd.pid"
     pf.parent.mkdir(parents=True, exist_ok=True)
 
     old = util.read_pidfile(pf)
     if util.pid_alive(old):
-        print(f"newd already running (pid {old})", file=sys.stderr)
+        print(f"cairnd already running (pid {old})", file=sys.stderr)
         sys.exit(1)
     util.write_pidfile(pf, os.getpid())
 
@@ -313,7 +313,7 @@ def main():
     server_stop = threading.Event()
     server_thread = threading.Thread(
         target=rpc.serve,
-        args=(project / ".new" / "sock", d.handle, server_stop),
+        args=(project / ".cairn" / "sock", d.handle, server_stop),
         daemon=True,
     )
     server_thread.start()
@@ -323,7 +323,7 @@ def main():
     finally:
         server_stop.set()
         try:
-            rpc.call(project / ".new" / "sock", schema.Req(type="__quit__"),
+            rpc.call(project / ".cairn" / "sock", schema.Req(type="__quit__"),
                      timeout=1.0)
         except Exception:
             pass

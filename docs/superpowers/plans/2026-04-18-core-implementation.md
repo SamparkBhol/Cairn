@@ -1,10 +1,10 @@
-# new123 Core Implementation Plan
+# cairn Core Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Build an autonomous experiment runner with a daemon/client split, Unix-socket RPC, SQLite state, worktree-isolated runs, a MemPalace-shaped wiki, and a two-gear explore/consolidate loop. Ship v1 with full test coverage and a toy example.
 
-**Architecture:** Two processes — `newd` (long-lived supervisor owning queue, workers, budget, SQLite) and `new` (thin client over a Unix domain socket). Workers run experiments in `git worktree` isolation. A markdown wiki (theses / topics / experiments) is the agent's compounding memory; consolidation passes fire every N experiments or on stall.
+**Architecture:** Two processes — `cairnd` (long-lived supervisor owning queue, workers, budget, SQLite) and `new` (thin client over a Unix domain socket). Workers run experiments in `git worktree` isolation. A markdown wiki (theses / topics / experiments) is the agent's compounding memory; consolidation passes fire every N experiments or on stall.
 
 **Tech Stack:** Python 3.10+, `msgspec` (schema + IPC framing), `PyYAML` (config), `pytest` (tests), `uv` (env + lock), stdlib only for sockets / subprocess / sqlite3 / signal.
 
@@ -15,9 +15,9 @@
 ## Execution notes
 
 - **TDD throughout.** Every task starts with a failing test, then the minimal implementation, then a commit.
-- **Absolute paths.** All file paths below are relative to the project root `new123/`. The project root is `/root/parameters/autoresearch_experimentation/work_checker/new123/`.
+- **Absolute paths.** All file paths below are relative to the project root `cairn/`. The project root is `/root/parameters/autoresearch_experimentation/work_checker/cairn/`.
 - **Commits.** One commit per numbered task. Conventional-commits prefix (`feat:`, `test:`, `chore:`).
-- **Git branch.** Do the whole plan on `master` of a fresh git repo in `new123/` (first task initializes the repo).
+- **Git branch.** Do the whole plan on `master` of a fresh git repo in `cairn/` (first task initializes the repo).
 - **Python.** Use `uv sync` once `pyproject.toml` exists. All later commands prefix with `uv run` or activate `.venv`.
 - **Style.** Terse. No emojis. Minimal docstrings (one short sentence or none). Short names ok where scope is obvious. This is personal software — make it look personal.
 
@@ -32,7 +32,7 @@
 - [ ] **Step 1: Initialize git repo**
 
 ```bash
-cd /root/parameters/autoresearch_experimentation/work_checker/new123
+cd /root/parameters/autoresearch_experimentation/work_checker/cairn
 git init -b master
 git config user.email "you@localhost"
 git config user.name "you"
@@ -48,7 +48,7 @@ git config user.name "you"
 
 ```toml
 [project]
-name = "new123"
+name = "cairn"
 version = "0.0.1"
 requires-python = ">=3.11"
 dependencies = [
@@ -63,8 +63,8 @@ dev = [
 ]
 
 [project.scripts]
-new = "new.cli:main"
-newd = "new.daemon:main"
+cairn = "cairn.cli:main"
+cairnd = "cairn.daemon:main"
 
 [build-system]
 requires = ["hatchling"]
@@ -85,7 +85,7 @@ __pycache__/
 *.pyc
 *.egg-info/
 .venv/
-.new/
+.cairn/
 build/
 dist/
 .pytest_cache/
@@ -94,7 +94,7 @@ dist/
 - [ ] **Step 5: Write `README.md` stub**
 
 ```markdown
-# new123
+# cairn
 
 [placeholder - final README written in Task 15]
 ```
@@ -122,14 +122,14 @@ import pytest
 def tmp_project(tmp_path, monkeypatch):
     """Run inside a throwaway project dir with PROJECT_ROOT set."""
     monkeypatch.chdir(tmp_path)
-    monkeypatch.setenv("NEW_PROJECT_ROOT", str(tmp_path))
+    monkeypatch.setenv("CAIRN_PROJECT_ROOT", str(tmp_path))
     return tmp_path
 ```
 
 - [ ] **Step 8: Write `tests/test_smoke.py`**
 
 ```python
-import new
+import cairn
 
 
 def test_version():
@@ -168,7 +168,7 @@ from pathlib import Path
 
 import pytest
 
-from new import util
+from cairn import util
 
 
 def test_project_root_from_env(tmp_project):
@@ -177,7 +177,7 @@ def test_project_root_from_env(tmp_project):
 
 def test_project_root_missing(monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
-    monkeypatch.delenv("NEW_PROJECT_ROOT", raising=False)
+    monkeypatch.delenv("CAIRN_PROJECT_ROOT", raising=False)
     # falls back to cwd
     assert util.project_root() == tmp_path
 
@@ -185,7 +185,7 @@ def test_project_root_missing(monkeypatch, tmp_path):
 def test_new_dir_created(tmp_project):
     d = util.new_dir()
     assert d.exists() and d.is_dir()
-    assert d == tmp_project / ".new"
+    assert d == tmp_project / ".cairn"
 
 
 def test_atomic_write_creates_file(tmp_project):
@@ -202,14 +202,14 @@ def test_atomic_write_overwrites(tmp_project):
 
 
 def test_pidfile_roundtrip(tmp_project):
-    pf = tmp_project / ".new" / "newd.pid"
+    pf = tmp_project / ".cairn" / "cairnd.pid"
     pf.parent.mkdir(parents=True)
     util.write_pidfile(pf, 4242)
     assert util.read_pidfile(pf) == 4242
 
 
 def test_pidfile_stale_detection(tmp_project):
-    pf = tmp_project / ".new" / "newd.pid"
+    pf = tmp_project / ".cairn" / "cairnd.pid"
     pf.parent.mkdir(parents=True)
     util.write_pidfile(pf, 999_999_999)   # almost certainly unused
     assert util.pid_alive(util.read_pidfile(pf)) is False
@@ -246,14 +246,14 @@ from pathlib import Path
 
 
 def project_root() -> Path:
-    p = os.environ.get("NEW_PROJECT_ROOT")
+    p = os.environ.get("CAIRN_PROJECT_ROOT")
     if p:
         return Path(p).resolve()
     return Path.cwd().resolve()
 
 
 def new_dir() -> Path:
-    d = project_root() / ".new"
+    d = project_root() / ".cairn"
     d.mkdir(parents=True, exist_ok=True)
     return d
 
@@ -333,7 +333,7 @@ git commit -m "feat: util — paths, pidfile, atomic write, flock"
 import msgspec
 import pytest
 
-from new import schema
+from cairn import schema
 
 
 def test_config_minimal():
@@ -565,11 +565,11 @@ git commit -m "feat: schema — config, rpc, records via msgspec"
 ```python
 from pathlib import Path
 
-from new import store
+from cairn import store
 
 
 def test_open_creates_tables(tmp_project):
-    s = store.open_store(tmp_project / ".new" / "state.db")
+    s = store.open_store(tmp_project / ".cairn" / "state.db")
     cur = s.conn.execute(
         "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name"
     )
@@ -579,7 +579,7 @@ def test_open_creates_tables(tmp_project):
 
 
 def test_kv_set_get(tmp_project):
-    s = store.open_store(tmp_project / ".new" / "state.db")
+    s = store.open_store(tmp_project / ".cairn" / "state.db")
     s.kv_set("foo", "1")
     assert s.kv_get("foo") == "1"
     assert s.kv_get("missing") is None
@@ -587,7 +587,7 @@ def test_kv_set_get(tmp_project):
 
 
 def test_counter_increment(tmp_project):
-    s = store.open_store(tmp_project / ".new" / "state.db")
+    s = store.open_store(tmp_project / ".cairn" / "state.db")
     assert s.next_exp_num() == 1
     assert s.next_exp_num() == 2
     assert s.next_exp_num() == 3
@@ -595,7 +595,7 @@ def test_counter_increment(tmp_project):
 
 
 def test_wal_mode(tmp_project):
-    s = store.open_store(tmp_project / ".new" / "state.db")
+    s = store.open_store(tmp_project / ".cairn" / "state.db")
     mode = s.conn.execute("PRAGMA journal_mode").fetchone()[0]
     assert mode.lower() == "wal"
     s.close()
@@ -729,7 +729,7 @@ git commit -m "feat: store — sqlite init, kv, exp_num counter"
 
 ```python
 def test_enqueue_and_size(tmp_project):
-    s = store.open_store(tmp_project / ".new" / "state.db")
+    s = store.open_store(tmp_project / ".cairn" / "state.db")
     assert s.queue_size() == 0
     qid = s.enqueue('{"h":"x"}', priority=0)
     assert qid == 1
@@ -738,7 +738,7 @@ def test_enqueue_and_size(tmp_project):
 
 
 def test_claim_respects_fifo_and_priority(tmp_project):
-    s = store.open_store(tmp_project / ".new" / "state.db")
+    s = store.open_store(tmp_project / ".cairn" / "state.db")
     s.enqueue('{"h":"a"}', priority=0)
     s.enqueue('{"h":"b"}', priority=5)
     s.enqueue('{"h":"c"}', priority=0)
@@ -750,14 +750,14 @@ def test_claim_respects_fifo_and_priority(tmp_project):
 
 
 def test_claim_empty_returns_none(tmp_project):
-    s = store.open_store(tmp_project / ".new" / "state.db")
+    s = store.open_store(tmp_project / ".cairn" / "state.db")
     assert s.claim_one("w1") is None
     s.close()
 
 
 def test_unclaim_stale(tmp_project):
     import time
-    s = store.open_store(tmp_project / ".new" / "state.db")
+    s = store.open_store(tmp_project / ".cairn" / "state.db")
     s.enqueue('{"h":"x"}', priority=0)
     item = s.claim_one("w1")
     # manually age the claim
@@ -842,7 +842,7 @@ git commit -m "feat: store — queue enqueue, claim, unclaim, dequeue"
 
 ```python
 def test_insert_and_list_runs(tmp_project):
-    s = store.open_store(tmp_project / ".new" / "state.db")
+    s = store.open_store(tmp_project / ".cairn" / "state.db")
     s.insert_run(
         exp_num=1, commit_sha="abc", metric=0.5, metric_holdout=None,
         status="keep", duration_s=1.0, started_at=1.0, ended_at=2.0,
@@ -856,7 +856,7 @@ def test_insert_and_list_runs(tmp_project):
 
 
 def test_runs_since_last_consolidation(tmp_project):
-    s = store.open_store(tmp_project / ".new" / "state.db")
+    s = store.open_store(tmp_project / ".cairn" / "state.db")
     for i in range(3):
         s.insert_run(
             exp_num=i + 1, commit_sha="x", metric=0.0, metric_holdout=None,
@@ -872,7 +872,7 @@ def test_runs_since_last_consolidation(tmp_project):
 
 
 def test_baseline_persist(tmp_project):
-    s = store.open_store(tmp_project / ".new" / "state.db")
+    s = store.open_store(tmp_project / ".cairn" / "state.db")
     s.save_baseline(n=3, mean=0.5, stddev=0.01, samples=[0.49, 0.50, 0.51])
     b = s.get_baseline()
     assert b["n"] == 3 and abs(b["mean"] - 0.5) < 1e-9
@@ -980,11 +980,11 @@ git commit -m "feat: store — runs, consolidations, baseline"
 - [ ] **Step 1: Write failing tests**
 
 ```python
-from new import budget, store
+from cairn import budget, store
 
 
 def test_init_and_state(tmp_project):
-    s = store.open_store(tmp_project / ".new" / "state.db")
+    s = store.open_store(tmp_project / ".cairn" / "state.db")
     budget.init(s, experiments=100, wallclock_h=1.0, cost_usd=0.0)
     st = budget.state(s)
     assert st["caps"]["experiments"] == 100
@@ -992,7 +992,7 @@ def test_init_and_state(tmp_project):
 
 
 def test_consume_experiments(tmp_project):
-    s = store.open_store(tmp_project / ".new" / "state.db")
+    s = store.open_store(tmp_project / ".cairn" / "state.db")
     budget.init(s, experiments=2, wallclock_h=1.0, cost_usd=0.0)
     assert budget.try_consume(s, "experiments", 1) is True
     assert budget.try_consume(s, "experiments", 1) is True
@@ -1000,7 +1000,7 @@ def test_consume_experiments(tmp_project):
 
 
 def test_halt_reason(tmp_project):
-    s = store.open_store(tmp_project / ".new" / "state.db")
+    s = store.open_store(tmp_project / ".cairn" / "state.db")
     budget.init(s, experiments=1, wallclock_h=1.0, cost_usd=0.0)
     budget.try_consume(s, "experiments", 1)
     assert budget.try_consume(s, "experiments", 1) is False
@@ -1008,7 +1008,7 @@ def test_halt_reason(tmp_project):
 
 
 def test_disabled_cap_is_unbounded(tmp_project):
-    s = store.open_store(tmp_project / ".new" / "state.db")
+    s = store.open_store(tmp_project / ".cairn" / "state.db")
     budget.init(s, experiments=5, wallclock_h=1.0, cost_usd=0.0)
     # cost is 0.0 = disabled
     for _ in range(10):
@@ -1098,7 +1098,7 @@ git commit -m "feat: budget — atomic ledger with caps"
 ```python
 import pytest
 
-from new import metric
+from cairn import metric
 
 
 def test_parse_single_line():
@@ -1188,7 +1188,7 @@ import time
 
 import pytest
 
-from new import rpc, schema
+from cairn import rpc, schema
 
 
 def _server_thread(sock_path, handler):
@@ -1208,7 +1208,7 @@ def _server_thread(sock_path, handler):
 
 
 def test_roundtrip_ok(tmp_project):
-    sock = tmp_project / ".new" / "sock"
+    sock = tmp_project / ".cairn" / "sock"
 
     def handler(req: schema.Req) -> schema.Resp:
         return schema.Resp(ok=True, payload=b"pong-" + req.payload)
@@ -1224,7 +1224,7 @@ def test_roundtrip_ok(tmp_project):
 
 
 def test_error_handler(tmp_project):
-    sock = tmp_project / ".new" / "sock"
+    sock = tmp_project / ".cairn" / "sock"
 
     def handler(req):
         raise RuntimeError("boom")
@@ -1364,7 +1364,7 @@ from pathlib import Path
 
 import pytest
 
-from new import worker
+from cairn import worker
 
 
 @pytest.fixture
@@ -1426,7 +1426,7 @@ def test_worktree_cleaned_up(mini_repo):
     )
     # worktree path should no longer be in 'git worktree list'
     out = subprocess.check_output(["git", "worktree", "list"], cwd=mini_repo).decode()
-    assert str(mini_repo / ".new" / "worktrees") not in out
+    assert str(mini_repo / ".cairn" / "worktrees") not in out
 ```
 
 - [ ] **Step 2: Run — FAIL**
@@ -1454,10 +1454,10 @@ def run_one(*, project: Path, exp_num: int,
             run_command: list[str], grep_pattern: str,
             timeout_s: int) -> dict:
     project = Path(project)
-    logs_dir = project / ".new" / "logs"
+    logs_dir = project / ".cairn" / "logs"
     logs_dir.mkdir(parents=True, exist_ok=True)
     sha = _run_git(["rev-parse", "HEAD"], project)[:7]
-    wt = project / ".new" / "worktrees" / f"{exp_num:04d}-{sha}"
+    wt = project / ".cairn" / "worktrees" / f"{exp_num:04d}-{sha}"
     wt.parent.mkdir(parents=True, exist_ok=True)
     log_path = logs_dir / f"{exp_num:04d}_{sha}.log"
 
@@ -1532,7 +1532,7 @@ git commit -m "feat: worker — worktree-isolated run with timeout and metric ex
 ```python
 import pytest
 
-from new import wiki
+from cairn import wiki
 
 
 def test_init_creates_skeleton(tmp_project):
@@ -1599,7 +1599,7 @@ def init(root: Path) -> None:
     root.mkdir(parents=True, exist_ok=True)
     for d in _SUBDIRS:
         (root / d).mkdir(exist_ok=True)
-    _ensure(root / "index.md", "# index\n\n(empty — run `new lint` to rebuild)\n")
+    _ensure(root / "index.md", "# index\n\n(empty — run `cairn lint` to rebuild)\n")
     _ensure(root / "log.md", "# log\n\n")
     _ensure(root / "schema.md", _SCHEMA_DOC)
 
@@ -1617,7 +1617,7 @@ three layers:
 - `topics/` — rooms. thematic clusters of experiments.
 - `experiments/` — drawers. one page per run, verbatim.
 
-`index.md` — catalog. regenerated by `new lint`.
+`index.md` — catalog. regenerated by `cairn lint`.
 `log.md`   — append-only event log. one line per event.
 """
 
@@ -1681,7 +1681,7 @@ git commit -m "feat: wiki — palace layout, path safety, index rebuild, append 
 - [ ] **Step 1: Tests**
 
 ```python
-from new import consolidate, metric, store
+from cairn import consolidate, metric, store
 
 
 def _insert_runs(s, metrics, status="keep"):
@@ -1695,32 +1695,32 @@ def _insert_runs(s, metrics, status="keep"):
 
 
 def test_trigger_by_count(tmp_project):
-    s = store.open_store(tmp_project / ".new" / "state.db")
+    s = store.open_store(tmp_project / ".cairn" / "state.db")
     _insert_runs(s, [0.1] * 20)
     assert consolidate.should_fire(s, every=20, thresh=0.01)[0] == "count"
 
 
 def test_trigger_by_stall_discards(tmp_project):
-    s = store.open_store(tmp_project / ".new" / "state.db")
+    s = store.open_store(tmp_project / ".cairn" / "state.db")
     _insert_runs(s, [0.1] * 5, status="discard")
     assert consolidate.should_fire(s, every=50, thresh=0.01)[0] == "stall"
 
 
 def test_trigger_by_flat_metric(tmp_project):
-    s = store.open_store(tmp_project / ".new" / "state.db")
+    s = store.open_store(tmp_project / ".cairn" / "state.db")
     # 10 runs all at same metric = stddev 0 < 0.01 * 0.1
     _insert_runs(s, [0.5] * 10)
     assert consolidate.should_fire(s, every=50, thresh=0.01)[0] == "stall"
 
 
 def test_no_trigger_when_healthy(tmp_project):
-    s = store.open_store(tmp_project / ".new" / "state.db")
+    s = store.open_store(tmp_project / ".cairn" / "state.db")
     _insert_runs(s, [0.5, 0.4, 0.3, 0.25, 0.2])   # progressive improvement
     assert consolidate.should_fire(s, every=50, thresh=0.01) is None
 
 
 def test_prompt_includes_recent(tmp_project):
-    s = store.open_store(tmp_project / ".new" / "state.db")
+    s = store.open_store(tmp_project / ".cairn" / "state.db")
     _insert_runs(s, [0.9, 0.8, 0.7])
     prompt = consolidate.build_prompt(s, wiki_root=tmp_project / "wiki",
                                        reason="manual")
@@ -1788,7 +1788,7 @@ def build_prompt(s, *, wiki_root: Path, reason: str) -> str:
         "4. if a thesis is supported or contradicted by the recent evidence,",
         "   update its status.",
         "5. flag any contradiction between a newer run and an older claim.",
-        "6. commit. run `new consolidate --done --notes \"...\"`.",
+        "6. commit. run `cairn consolidate --done --notes \"...\"`.",
         "",
         f"wiki root: {wiki_root}",
     ]
@@ -1813,9 +1813,9 @@ git commit -m "feat: consolidate — two-gear trigger + prompt builder"
 
 This task has no tests of its own — the daemon is exercised in `test_e2e.py` (Task 18). The contract is:
 
-- `main()` is the entrypoint (called by `newd` script).
-- Writes a pidfile at `.new/newd.pid`, unlinks on shutdown.
-- Serves RPC on `.new/sock`.
+- `main()` is the entrypoint (called by `cairnd` script).
+- Writes a pidfile at `.cairn/cairnd.pid`, unlinks on shutdown.
+- Serves RPC on `.cairn/sock`.
 - Workers run in a thread pool of size `cfg.workers`.
 - Main loop: claim queue item → `worker.run_one` → `store.insert_run` → budget update → sleep.
 - On SIGTERM: set stop flag, wait for in-flight workers (up to 15s), close socket, exit.
@@ -1847,7 +1847,7 @@ class Daemon:
     def __init__(self, project: Path):
         self.project = Path(project)
         self.cfg = _load_cfg(self.project)
-        self.store = store.open_store(self.project / ".new" / "state.db")
+        self.store = store.open_store(self.project / ".cairn" / "state.db")
         self.stop = threading.Event()
         self.in_flight = 0
         self.in_flight_lock = threading.Lock()
@@ -2020,19 +2020,19 @@ class Daemon:
 
 
 def main():
-    ap = argparse.ArgumentParser(prog="newd")
+    ap = argparse.ArgumentParser(prog="cairnd")
     ap.add_argument("--project", default=".", help="project dir (default: cwd)")
     ap.add_argument("--foreground", action="store_true")
     args = ap.parse_args()
 
     project = Path(args.project).resolve()
-    os.environ["NEW_PROJECT_ROOT"] = str(project)
-    pf = project / ".new" / "newd.pid"
+    os.environ["CAIRN_PROJECT_ROOT"] = str(project)
+    pf = project / ".cairn" / "cairnd.pid"
     pf.parent.mkdir(parents=True, exist_ok=True)
 
     old = util.read_pidfile(pf)
     if util.pid_alive(old):
-        print(f"newd already running (pid {old})", file=sys.stderr)
+        print(f"cairnd already running (pid {old})", file=sys.stderr)
         sys.exit(1)
     util.write_pidfile(pf, os.getpid())
 
@@ -2046,7 +2046,7 @@ def main():
     server_stop = threading.Event()
     server_thread = threading.Thread(
         target=rpc.serve,
-        args=(project / ".new" / "sock", d.handle, server_stop),
+        args=(project / ".cairn" / "sock", d.handle, server_stop),
         daemon=True,
     )
     server_thread.start()
@@ -2056,7 +2056,7 @@ def main():
     finally:
         server_stop.set()
         try:
-            rpc.call(project / ".new" / "sock", schema.Req(type="__quit__"),
+            rpc.call(project / ".cairn" / "sock", schema.Req(type="__quit__"),
                      timeout=1.0)
         except Exception:
             pass
@@ -2075,7 +2075,7 @@ if __name__ == "__main__":
 - [ ] **Step 2: Sanity check the import**
 
 ```bash
-uv run python -c "from new import daemon; print('ok')"
+uv run python -c "from cairn import daemon; print('ok')"
 ```
 Expected: `ok`.
 
@@ -2105,7 +2105,7 @@ from pathlib import Path
 
 def test_init_scaffolds(tmp_project):
     p = subprocess.run(
-        [sys.executable, "-m", "new", "init"],
+        [sys.executable, "-m", "cairn", "init"],
         cwd=tmp_project, capture_output=True, text=True,
     )
     assert p.returncode == 0, p.stderr
@@ -2115,7 +2115,7 @@ def test_init_scaffolds(tmp_project):
 
 def test_status_when_no_daemon(tmp_project):
     p = subprocess.run(
-        [sys.executable, "-m", "new", "status"],
+        [sys.executable, "-m", "cairn", "status"],
         cwd=tmp_project, capture_output=True, text=True,
     )
     assert p.returncode == 0
@@ -2165,15 +2165,15 @@ budget:
 
 
 def _project() -> Path:
-    return Path(os.environ.get("NEW_PROJECT_ROOT", os.getcwd())).resolve()
+    return Path(os.environ.get("CAIRN_PROJECT_ROOT", os.getcwd())).resolve()
 
 
 def _sock() -> Path:
-    return _project() / ".new" / "sock"
+    return _project() / ".cairn" / "sock"
 
 
 def _pid() -> Path:
-    return _project() / ".new" / "newd.pid"
+    return _project() / ".cairn" / "cairnd.pid"
 
 
 def _daemon_up() -> bool:
@@ -2183,7 +2183,7 @@ def _daemon_up() -> bool:
 
 def cmd_init(args):
     proj = _project()
-    (proj / ".new").mkdir(exist_ok=True)
+    (proj / ".cairn").mkdir(exist_ok=True)
     yf = proj / "experiment.yaml"
     if not yf.exists():
         yf.write_text(_TEMPLATE_YAML)
@@ -2196,31 +2196,31 @@ def cmd_init(args):
 
 def cmd_up(args):
     if _daemon_up():
-        print("newd already up")
+        print("cairnd already up")
         return
     proj = _project()
-    log = proj / ".new" / "logs" / "newd.log"
+    log = proj / ".cairn" / "logs" / "cairnd.log"
     log.parent.mkdir(parents=True, exist_ok=True)
     # spawn detached
     p = subprocess.Popen(
-        [sys.executable, "-m", "new.daemon", "--project", str(proj)],
+        [sys.executable, "-m", "cairn.daemon", "--project", str(proj)],
         stdout=open(log, "ab"), stderr=subprocess.STDOUT,
         start_new_session=True,
     )
     # wait up to 3s for socket
     for _ in range(60):
         if _sock().exists():
-            print(f"newd up (pid {p.pid})")
+            print(f"cairnd up (pid {p.pid})")
             return
         time.sleep(0.05)
-    print("newd did not come up — see .new/logs/newd.log", file=sys.stderr)
+    print("cairnd did not come up — see .cairn/logs/cairnd.log", file=sys.stderr)
     sys.exit(1)
 
 
 def cmd_down(args):
     pid = util.read_pidfile(_pid())
     if not util.pid_alive(pid):
-        print("newd not running")
+        print("cairnd not running")
         return
     try:
         os.kill(pid, signal.SIGTERM)
@@ -2241,14 +2241,14 @@ def cmd_down(args):
 
 def cmd_status(args):
     if not _daemon_up():
-        print("newd: down")
+        print("cairnd: down")
         return
     resp = rpc.call(_sock(), schema.Req(type="status"))
     if not resp.ok:
         print(f"error: {resp.error}", file=sys.stderr)
         sys.exit(1)
     data = json.loads(resp.payload)
-    print(f"newd: up (uptime {data['uptime_s']:.0f}s)")
+    print(f"cairnd: up (uptime {data['uptime_s']:.0f}s)")
     print(f"queue: {data['queue_size']}  in-flight: {data['in_flight']}")
     print("budget:")
     for k in data["budget_cap"]:
@@ -2266,7 +2266,7 @@ def cmd_status(args):
 
 def cmd_run(args):
     if not _daemon_up():
-        print("newd not running; run `new up`", file=sys.stderr)
+        print("cairnd not running; run `cairn up`", file=sys.stderr)
         sys.exit(1)
     payload = json.dumps({
         "hypothesis": args.hypothesis or "",
@@ -2282,7 +2282,7 @@ def cmd_run(args):
 
 def cmd_consolidate(args):
     if not _daemon_up():
-        print("newd not running", file=sys.stderr)
+        print("cairnd not running", file=sys.stderr)
         sys.exit(1)
     if args.done:
         payload = json.dumps({
@@ -2308,7 +2308,7 @@ def cmd_lint(args):
 
 
 def cmd_logs(args):
-    logs = _project() / ".new" / "logs"
+    logs = _project() / ".cairn" / "logs"
     if args.exp is not None:
         matches = sorted(logs.glob(f"{args.exp:04d}_*.log"))
         if not matches:
@@ -2316,14 +2316,14 @@ def cmd_logs(args):
             sys.exit(1)
         print(matches[-1].read_text())
         return
-    newd = logs / "newd.log"
-    if not newd.exists():
+    cairnd = logs / "cairnd.log"
+    if not cairnd.exists():
         print("no daemon log yet", file=sys.stderr)
         return
     if args.follow:
-        subprocess.call(["tail", "-F", str(newd)])
+        subprocess.call(["tail", "-F", str(cairnd)])
     else:
-        print(newd.read_text())
+        print(cairnd.read_text())
 
 
 def main():
@@ -2386,7 +2386,7 @@ git commit -m "feat: cli — init/up/down/status/run/consolidate/lint/logs"
 - [ ] **Step 1: Replace the stub `README.md` with the real one**
 
 ```markdown
-# new123
+# cairn
 
 Working name. Real name pending.
 
@@ -2420,7 +2420,7 @@ isolation. This is the rewrite I kept meaning to do.
 - **Held-out eval.** Optional sidecar command the agent can't see. If
   the primary metric improves but the held-out doesn't, the run is
   discarded. Cheap Goodhart defense.
-- **Daemon + client.** A long-lived `newd` owns everything that can go
+- **Daemon + client.** A long-lived `cairnd` owns everything that can go
   wrong (queue, budget, worktrees, metric parsing). A thin `new` CLI
   is what you type. No port conflicts — Unix socket.
 - **Worktree per run.** Every experiment runs in its own `git worktree`.
@@ -2435,7 +2435,7 @@ isolation. This is the rewrite I kept meaning to do.
 
 - Not a cloud orchestrator. Single machine.
 - Not a hyperparameter search. The agent does the thinking.
-- Not a metrics dashboard. `new status` in a second terminal.
+- Not a metrics dashboard. `cairn status` in a second terminal.
 - Not tied to any LLM. Works with Claude Code, Codex, plain bash scripts.
 - Not for Windows. Unix sockets, flock, process groups.
 
@@ -2449,10 +2449,10 @@ uv tool install .
 
 ```
 cd your-project/
-new init                          # writes experiment.yaml, wiki/, .new/
+cairn init                          # writes experiment.yaml, wiki/, .cairn/
 # edit experiment.yaml
-new up                            # start the daemon
-new baseline                      # run baseline 3x, get noise profile
+cairn up                            # start the daemon
+cairn baseline                      # run baseline 3x, get noise profile
 # open claude code (or whatever)
 # prompt: "read program.md and let's start"
 ```
@@ -2460,14 +2460,14 @@ new baseline                      # run baseline 3x, get noise profile
 In another terminal:
 
 ```
-new status                        # queue, budget, last 5 runs
-new logs --exp 7                  # stdout of experiment 7
+cairn status                        # queue, budget, last 5 runs
+cairn logs --exp 7                  # stdout of experiment 7
 ```
 
 To stop:
 
 ```
-new down
+cairn down
 ```
 
 ## Files
@@ -2475,7 +2475,7 @@ new down
 - `experiment.yaml` — config
 - `program.md` — agent contract, short
 - `wiki/` — the palace. agent-maintained.
-- `.new/` — daemon state. gitignored.
+- `.cairn/` — daemon state. gitignored.
 
 ## Credit
 
@@ -2515,9 +2515,9 @@ maintains a wiki with you.
 
 ## setup
 
-1. `new status` — is the daemon up?
-2. if not: `new up`.
-3. if first session in this repo: `new baseline` — runs the unmodified
+1. `cairn status` — is the daemon up?
+2. if not: `cairn up`.
+3. if first session in this repo: `cairn baseline` — runs the unmodified
    script 3x, persists noise profile. if stddev dominates the
    improvement threshold the daemon refuses to start; fix the rng seed
    or raise the threshold.
@@ -2531,8 +2531,8 @@ each experiment:
 2. write a one-sentence hypothesis. what will change and why.
 3. edit the editable files listed in `experiment.yaml`.
 4. `git commit -m "..."`.
-5. `new run -H "<hypothesis>" -d "<short description>"`.
-6. watch: `new status`, or `new logs --exp <N> --follow`.
+5. `cairn run -H "<hypothesis>" -d "<short description>"`.
+6. watch: `cairn status`, or `cairn logs --exp <N> --follow`.
 7. when the run is recorded, write `wiki/experiments/<N>-<slug>.md`.
    include: hypothesis, diff summary (1-3 lines), metric, verdict,
    links to any topic/thesis pages this result updated.
@@ -2545,10 +2545,10 @@ the daemon fires consolidation when:
 - 20 runs have happened since the last pass, OR
 - 5 consecutive discards, OR
 - metric has gone flat for 10 runs, OR
-- you ran `new consolidate --force`.
+- you ran `cairn consolidate --force`.
 
 when fired:
-1. `new consolidate` — emits a prompt on stdout with the recent runs.
+1. `cairn consolidate` — emits a prompt on stdout with the recent runs.
 2. read the wiki in full. it should not take long if you've been
    maintaining it.
 3. for each recent run, make sure an `experiments/<N>-<slug>.md` exists.
@@ -2556,20 +2556,20 @@ when fired:
    weaken claims based on new evidence, flag contradictions.
 5. if a new thesis has emerged, create `theses/<slug>.md`.
 6. `git commit -m "wiki: consolidate after exp <N>"`.
-7. `new consolidate --done --notes "..." --pages-touched <k>`.
+7. `cairn consolidate --done --notes "..." --pages-touched <k>`.
 
 ## stopping
 
 the daemon stops itself when any budget cap is hit. check with
-`new status`. if you want to pause manually, `new down`.
+`cairn status`. if you want to pause manually, `cairn down`.
 
 ## rules
 
-- never write to `.new/`. the daemon owns it.
+- never write to `.cairn/`. the daemon owns it.
 - never edit another experiment's page. history is append-only.
 - never `git reset --hard` the experiment branch. if a run was bad,
   the next experiment reverts.
-- if the daemon crashes, `new up` again. it resumes from sqlite.
+- if the daemon crashes, `cairn up` again. it resumes from sqlite.
 - if you don't know what to do, re-read this file.
 ```
 
@@ -2682,9 +2682,9 @@ def toy_project(tmp_path):
 
 def _new(project, *argv) -> subprocess.CompletedProcess:
     env = os.environ.copy()
-    env["NEW_PROJECT_ROOT"] = str(project)
+    env["CAIRN_PROJECT_ROOT"] = str(project)
     return subprocess.run(
-        [sys.executable, "-m", "new", *argv],
+        [sys.executable, "-m", "cairn", *argv],
         cwd=project, capture_output=True, text=True, env=env, timeout=20,
     )
 
@@ -2759,7 +2759,7 @@ git commit -m "test: e2e full-loop integration"
 import msgspec
 import pytest
 
-from new import schema
+from cairn import schema
 
 
 MALICIOUS = [
@@ -2829,12 +2829,12 @@ Expected: all green.
 ```bash
 cd examples/toy-sort
 rm -rf .new wiki
-NEW_PROJECT_ROOT=$PWD python -m new init
-NEW_PROJECT_ROOT=$PWD python -m new up
-NEW_PROJECT_ROOT=$PWD python -m new run -d "baseline"
+CAIRN_PROJECT_ROOT=$PWD python -m cairn init
+CAIRN_PROJECT_ROOT=$PWD python -m cairn up
+CAIRN_PROJECT_ROOT=$PWD python -m cairn run -d "baseline"
 sleep 5
-NEW_PROJECT_ROOT=$PWD python -m new status
-NEW_PROJECT_ROOT=$PWD python -m new down
+CAIRN_PROJECT_ROOT=$PWD python -m cairn status
+CAIRN_PROJECT_ROOT=$PWD python -m cairn down
 cd -
 ```
 Expected: one experiment recorded, daemon down cleanly.
@@ -2856,7 +2856,7 @@ git tag v0.1.0
 
 ## Spec coverage check
 
-- Two processes (newd + new): Tasks 13, 14.
+- Two processes (cairnd + new): Tasks 13, 14.
 - UDS framing: Task 9.
 - SQLite schema + WAL: Task 4.
 - Queue / runs / consolidations / baseline tables: Tasks 4, 5, 6.
@@ -2874,11 +2874,11 @@ git tag v0.1.0
 - Example: Task 17.
 - README + program.md: Tasks 15, 16.
 
-### Gap: `new baseline` + held-out eval
+### Gap: `cairn baseline` + held-out eval
 
-The spec describes both. The v0.1 plan ships the data model (`baseline` and `Holdout` struct) but not the wiring. The runtime impact is zero for held-out (optional feature) and small for baseline (agent can run `new run` 3x manually as a workaround). If you want these in v0.1 I'll add:
+The spec describes both. The v0.1 plan ships the data model (`baseline` and `Holdout` struct) but not the wiring. The runtime impact is zero for held-out (optional feature) and small for baseline (agent can run `cairn run` 3x manually as a workaround). If you want these in v0.1 I'll add:
 
-- **Task 21**: `new baseline [--n N]` runs the unmodified script N times, computes mean/stddev, persists via `store.save_baseline`. Daemon checks at startup and refuses if stddev dominates threshold.
+- **Task 21**: `cairn baseline [--n N]` runs the unmodified script N times, computes mean/stddev, persists via `store.save_baseline`. Daemon checks at startup and refuses if stddev dominates threshold.
 - **Task 22**: holdout hook in `_run_worker` — if `cfg.holdout` is set and `exp_num % cfg.holdout.every == 0`, spawn the holdout command after the primary run, capture its metric, set `metric_holdout` on the record, and demote to `discard` on divergence.
 
 Say the word and I add both before execution.

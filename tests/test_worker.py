@@ -3,7 +3,7 @@ from pathlib import Path
 
 import pytest
 
-from new import worker
+from cairn import worker
 
 
 @pytest.fixture
@@ -64,4 +64,4 @@ def test_worktree_cleaned_up(mini_repo):
         grep_pattern=r"^val_loss:", timeout_s=10,
     )
     out = subprocess.check_output(["git", "worktree", "list"], cwd=mini_repo).decode()
-    assert str(mini_repo / ".new" / "worktrees") not in out
+    assert str(mini_repo / ".cairn" / "worktrees") not in out

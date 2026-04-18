@@ -51,7 +51,7 @@ def build_prompt(s, *, wiki_root: Path, reason: str) -> str:
         "4. if a thesis is supported or contradicted by the recent evidence,",
         "   update its status.",
         "5. flag any contradiction between a newer run and an older claim.",
-        "6. commit. run `new consolidate --done --notes \"...\"`.",
+        "6. commit. run `cairn consolidate --done --notes \"...\"`.",
         "",
         f"wiki root: {wiki_root}",
     ]

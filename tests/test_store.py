@@ -1,10 +1,10 @@
 from pathlib import Path
 
-from new import store
+from cairn import store
 
 
 def test_open_creates_tables(tmp_project):
-    s = store.open_store(tmp_project / ".new" / "state.db")
+    s = store.open_store(tmp_project / ".cairn" / "state.db")
     cur = s.conn.execute(
         "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name"
     )
@@ -14,7 +14,7 @@ def test_open_creates_tables(tmp_project):
 
 
 def test_kv_set_get(tmp_project):
-    s = store.open_store(tmp_project / ".new" / "state.db")
+    s = store.open_store(tmp_project / ".cairn" / "state.db")
     s.kv_set("foo", "1")
     assert s.kv_get("foo") == "1"
     assert s.kv_get("missing") is None
@@ -22,7 +22,7 @@ def test_kv_set_get(tmp_project):
 
 
 def test_counter_increment(tmp_project):
-    s = store.open_store(tmp_project / ".new" / "state.db")
+    s = store.open_store(tmp_project / ".cairn" / "state.db")
     assert s.next_exp_num() == 1
     assert s.next_exp_num() == 2
     assert s.next_exp_num() == 3
@@ -30,14 +30,14 @@ def test_counter_increment(tmp_project):
 
 
 def test_wal_mode(tmp_project):
-    s = store.open_store(tmp_project / ".new" / "state.db")
+    s = store.open_store(tmp_project / ".cairn" / "state.db")
     mode = s.conn.execute("PRAGMA journal_mode").fetchone()[0]
     assert mode.lower() == "wal"
     s.close()
 
 
 def test_enqueue_and_size(tmp_project):
-    s = store.open_store(tmp_project / ".new" / "state.db")
+    s = store.open_store(tmp_project / ".cairn" / "state.db")
     assert s.queue_size() == 0
     qid = s.enqueue('{"h":"x"}', priority=0)
     assert qid == 1
@@ -46,7 +46,7 @@ def test_enqueue_and_size(tmp_project):
 
 
 def test_claim_respects_fifo_and_priority(tmp_project):
-    s = store.open_store(tmp_project / ".new" / "state.db")
+    s = store.open_store(tmp_project / ".cairn" / "state.db")
     s.enqueue('{"h":"a"}', priority=0)
     s.enqueue('{"h":"b"}', priority=5)
     s.enqueue('{"h":"c"}', priority=0)
@@ -58,14 +58,14 @@ def test_claim_respects_fifo_and_priority(tmp_project):
 
 
 def test_claim_empty_returns_none(tmp_project):
-    s = store.open_store(tmp_project / ".new" / "state.db")
+    s = store.open_store(tmp_project / ".cairn" / "state.db")
     assert s.claim_one("w1") is None
     s.close()
 
 
 def test_unclaim_stale(tmp_project):
     import time
-    s = store.open_store(tmp_project / ".new" / "state.db")
+    s = store.open_store(tmp_project / ".cairn" / "state.db")
     s.enqueue('{"h":"x"}', priority=0)
     item = s.claim_one("w1")
     s.conn.execute("UPDATE queue SET claimed_at = ? WHERE id=?",
@@ -78,7 +78,7 @@ def test_unclaim_stale(tmp_project):
 
 
 def test_insert_and_list_runs(tmp_project):
-    s = store.open_store(tmp_project / ".new" / "state.db")
+    s = store.open_store(tmp_project / ".cairn" / "state.db")
     s.insert_run(
         exp_num=1, commit_sha="abc", metric=0.5, metric_holdout=None,
         status="keep", duration_s=1.0, started_at=1.0, ended_at=2.0,
@@ -92,7 +92,7 @@ def test_insert_and_list_runs(tmp_project):
 
 
 def test_runs_since_last_consolidation(tmp_project):
-    s = store.open_store(tmp_project / ".new" / "state.db")
+    s = store.open_store(tmp_project / ".cairn" / "state.db")
     for i in range(3):
         s.insert_run(
             exp_num=i + 1, commit_sha="x", metric=0.0, metric_holdout=None,
@@ -108,7 +108,7 @@ def test_runs_since_last_consolidation(tmp_project):
 
 
 def test_baseline_persist(tmp_project):
-    s = store.open_store(tmp_project / ".new" / "state.db")
+    s = store.open_store(tmp_project / ".cairn" / "state.db")
     s.save_baseline(n=3, mean=0.5, stddev=0.01, samples=[0.49, 0.50, 0.51])
     b = s.get_baseline()
     assert b["n"] == 3 and abs(b["mean"] - 0.5) < 1e-9

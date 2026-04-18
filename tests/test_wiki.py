@@ -1,6 +1,6 @@
 import pytest
 
-from new import wiki
+from cairn import wiki
 
 
 def test_init_creates_skeleton(tmp_project):
