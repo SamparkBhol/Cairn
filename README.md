@@ -11,13 +11,7 @@ started and a wiki that tells you why.
 
 ## Why this exists
 
-I've been using karpathy's autoresearch and a fork of it called ACE for a
-few months. Both work. Both hit the same wall: after ~40 experiments the
-agent starts re-proposing things it already tried, the metric has drifted
-from what I actually care about, and the log is too long to read. The
-mechanical parts also have real bugs — shell injection if your yaml has
-the wrong char in it, tsv corruption, no budget cap, no worktree
-isolation. This is the rewrite I kept meaning to do.
+I've been using karpathy's autoresearch for a few weeks. Both work. Both hit the same wall: after ~40 experiments the agent starts re-proposing things it already tried, the metric has drifted from what I actually care about, and the log is too long to read. The mechanical parts also have real bugs — shell injection if your yaml has the wrong char in it, tsv corruption, no budget cap, no worktree isolation. This is the rewrite I kept meaning to do.
 
 ## How it's different
 
@@ -94,7 +88,6 @@ cairn down
 - karpathy's [llm-wiki gist](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f) —
   the wiki-as-compounding-memory idea.
 - [MemPalace](https://github.com/MemPalace/mempalace) — the palace layout.
-- ACE — the good parts of the yaml-config idea. Minus the bugs.
 
 ## License
 
