@@ -133,6 +133,100 @@ class Store:
         with self.conn:
             self.conn.execute("DELETE FROM queue WHERE id=?", (qid,))
 
+    def insert_run(self, *, exp_num, commit_sha, metric, metric_holdout,
+                   status, duration_s, started_at, ended_at,
+                   hypothesis, verdict, description, log_path, wiki_refs):
+        import json
+        with self.conn:
+            self.conn.execute(
+                "INSERT INTO runs(exp_num,commit_sha,metric,metric_holdout,"
+                "status,duration_s,started_at,ended_at,hypothesis,verdict,"
+                "description,log_path,wiki_refs) "
+                "VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                (exp_num, commit_sha, metric, metric_holdout, status,
+                 duration_s, started_at, ended_at, hypothesis, verdict,
+                 description, log_path, json.dumps(wiki_refs)),
+            )
+
+    def update_run(self, exp_num: int, **fields) -> None:
+        if not fields:
+            return
+        import json
+        cols = []
+        vals = []
+        for k, v in fields.items():
+            if k == "wiki_refs":
+                v = json.dumps(v)
+            cols.append(f"{k}=?")
+            vals.append(v)
+        vals.append(exp_num)
+        with self.conn:
+            self.conn.execute(
+                f"UPDATE runs SET {', '.join(cols)} WHERE exp_num=?",
+                vals,
+            )
+
+    def last_runs(self, n: int) -> list[dict]:
+        import json
+        cur = self.conn.execute(
+            "SELECT exp_num,commit_sha,metric,metric_holdout,status,"
+            "duration_s,started_at,ended_at,hypothesis,verdict,description,"
+            "log_path,wiki_refs FROM runs ORDER BY exp_num DESC LIMIT ?",
+            (n,),
+        )
+        cols = [d[0] for d in cur.description]
+        rows = [dict(zip(cols, r)) for r in cur]
+        for r in rows:
+            r["wiki_refs"] = json.loads(r["wiki_refs"] or "[]")
+        return rows
+
+    def runs_since_last_consolidation(self) -> int:
+        r = self.conn.execute(
+            "SELECT COALESCE(MAX(started_at),0) FROM consolidations"
+        ).fetchone()
+        cutoff = r[0]
+        r = self.conn.execute(
+            "SELECT COUNT(*) FROM runs WHERE started_at > ?", (cutoff,)
+        ).fetchone()
+        return r[0]
+
+    def record_consolidation_start(self, triggered_by: str) -> int:
+        with self.conn:
+            cur = self.conn.execute(
+                "INSERT INTO consolidations(triggered_by, started_at) "
+                "VALUES(?,?)",
+                (triggered_by, time.time()),
+            )
+            return cur.lastrowid
+
+    def record_consolidation_end(self, *, pages_touched: int, notes: str) -> None:
+        with self.conn:
+            self.conn.execute(
+                "UPDATE consolidations SET ended_at=?, pages_touched=?, notes=? "
+                "WHERE id = (SELECT MAX(id) FROM consolidations)",
+                (time.time(), pages_touched, notes),
+            )
+
+    def save_baseline(self, *, n, mean, stddev, samples):
+        import json
+        with self.conn:
+            self.conn.execute("DELETE FROM baseline")
+            self.conn.execute(
+                "INSERT INTO baseline(n,mean,stddev,samples,taken_at) "
+                "VALUES(?,?,?,?,?)",
+                (n, mean, stddev, json.dumps(samples), time.time()),
+            )
+
+    def get_baseline(self) -> dict | None:
+        import json
+        r = self.conn.execute(
+            "SELECT n,mean,stddev,samples,taken_at FROM baseline LIMIT 1"
+        ).fetchone()
+        if not r:
+            return None
+        return dict(n=r[0], mean=r[1], stddev=r[2],
+                    samples=json.loads(r[3]), taken_at=r[4])
+
 
 def open_store(path: Path) -> Store:
     path.parent.mkdir(parents=True, exist_ok=True)

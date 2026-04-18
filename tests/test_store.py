@@ -75,3 +75,41 @@ def test_unclaim_stale(tmp_project):
     again = s.claim_one("w1")
     assert again is not None
     s.close()
+
+
+def test_insert_and_list_runs(tmp_project):
+    s = store.open_store(tmp_project / ".new" / "state.db")
+    s.insert_run(
+        exp_num=1, commit_sha="abc", metric=0.5, metric_holdout=None,
+        status="keep", duration_s=1.0, started_at=1.0, ended_at=2.0,
+        hypothesis="h", verdict="v", description="d",
+        log_path="logs/1.log", wiki_refs=[],
+    )
+    rows = s.last_runs(5)
+    assert len(rows) == 1
+    assert rows[0]["exp_num"] == 1
+    s.close()
+
+
+def test_runs_since_last_consolidation(tmp_project):
+    s = store.open_store(tmp_project / ".new" / "state.db")
+    for i in range(3):
+        s.insert_run(
+            exp_num=i + 1, commit_sha="x", metric=0.0, metric_holdout=None,
+            status="keep", duration_s=0.0, started_at=float(i + 1), ended_at=float(i + 1),
+            hypothesis="", verdict="", description="",
+            log_path="", wiki_refs=[],
+        )
+    assert s.runs_since_last_consolidation() == 3
+    s.record_consolidation_start("count")
+    s.record_consolidation_end(pages_touched=2, notes="ok")
+    assert s.runs_since_last_consolidation() == 0
+    s.close()
+
+
+def test_baseline_persist(tmp_project):
+    s = store.open_store(tmp_project / ".new" / "state.db")
+    s.save_baseline(n=3, mean=0.5, stddev=0.01, samples=[0.49, 0.50, 0.51])
+    b = s.get_baseline()
+    assert b["n"] == 3 and abs(b["mean"] - 0.5) < 1e-9
+    s.close()
