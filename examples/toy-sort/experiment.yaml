@@ -1,0 +1,13 @@
+run_command: python main.py
+grep_pattern: "^avg_time_ms:"
+metric:
+  name: avg_time_ms
+  direction: minimize
+workers: 1
+consolidate_every: 5
+improvement_threshold: 0.2
+timeout_seconds: 30
+budget:
+  max_experiments: 20
+  max_wallclock_hours: 1
+  max_cost_usd: 0
