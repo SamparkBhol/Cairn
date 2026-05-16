@@ -494,11 +494,11 @@ Yes. Each project has its own `.cairn/sock`. Two projects, two sockets, zero col
 
 ## Credit
 
-karpathy's [autoresearch](https://github.com/karpathy/autoresearch), for the original loop shape and the fixed-time-budget discipline.
+1. karpathy's [autoresearch](https://github.com/karpathy/autoresearch), for the original loop shape and the fixed-time-budget discipline.
 
-karpathy's [llm-wiki gist](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f), for the idea that LLMs should incrementally build and maintain a wiki instead of re-deriving knowledge on every query.
+2. karpathy's [llm-wiki gist](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f), for the idea that LLMs should incrementally build and maintain a wiki instead of re-deriving knowledge on every query.
 
-[MemPalace](https://github.com/MemPalace/mempalace), for the wings/rooms/drawers layout that shaped `theses/`, `topics/`, `experiments/`.
+3. [MemPalace](https://github.com/MemPalace/mempalace), for the wings/rooms/drawers layout that shaped `theses/`, `topics/`, `experiments/`.
 
 ## License
 MIT License
